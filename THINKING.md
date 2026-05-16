@@ -27,6 +27,22 @@ Oh, and one other thing I wasn't sure on is if there are limits on the concurren
      - What are you deliberately deferring?
      - What will you build FIRST — the smallest slice that proves something useful? -->
 
+Start time - 2:10 pm 5/16
+
+From my initial reaction, I knew I was going to ultimately go with either asyncio or multithreading as two built-in options. After a bit of research, I have decided to go with asyncio. I believe it has all of the features that I need to complete the 7 tasks, and will be a bit easier to implement than using the multithreading library.
+
+I started by doing research into the asyncio library - I have only used this package here and there, so it was important for me to understand more, both conceptually and technically. Now, I feel a bit more comfortable with moving forward, but I know I will need to go back and forth with reference documents as I progress through the task. 
+
+
+Initial plan for file structure is the following:
+- src/task_queue.py -> this will be the module that I build. plan is to have a class TaskQueue() and then define different methods within there as needed
+- tests/test_task_queue.py -> this will be for unit-testing my code. will be building out as I go
+- src/demo.py -> this will be used for my own end-to-end testing and ultimately the final run that will validate if I have successfully built a module to meet the task specifications
+
+I am deferring on deciding anything related to backoff/retries/delay/etc. I do not know how to implement these and to me it makes more sense to build my module piece-meal and research those more when I'm ready. 
+
+To start, I am going to build the file structure, the initial Class, and then a method for enqueueing tasks, along with a unit test for that method. After I typed that, I realized testing async may be more challening than I thought - did quick research and there is pytest-asyncio so that should help me. 
+
 ## Progress Notes
 
 <!-- Drop an entry any time you:
@@ -40,7 +56,9 @@ Oh, and one other thing I wasn't sure on is if there are limits on the concurren
      Imagine your pair partner just asked "what are you doing?" — answer that.
      Add as many entries as you need. -->
 
-### [HH:MM]
+### [03:26 5/16]]
+
+I got my first successful test back for enqueueing tasks. My initial plan I did not realize I had to initialize a worker pool right away, quickly found that out when my enqueue method was not working. I also had to add __init__.py files in order for my pytests to operate correctly. 
 
 ### [HH:MM]
 
@@ -54,6 +72,11 @@ Oh, and one other thing I wasn't sure on is if there are limits on the concurren
 
 <!-- Optional. Any docs, articles, past code, or language references you looked at.
      A one-line note on what you took from each is enough. -->
+
+AsyncIO documentation -> 
+ https://realpython.com/async-io-python/?gad_source=1&gad_campaignid=23282418443&gbraid=0AAAAA_bFrtJyykW87ZXOIptUHNfSCyLlE&gclid=CjwKCAjwq6DQBhBVEiwA4ZD5XCprT6kiLGunKyVsuUnIY6pHTF1ubhwHr2tSuVQjGMQiT1YIORIQkBoC9csQAvD_BwE
+
+
 
 ## Retrospective
 
