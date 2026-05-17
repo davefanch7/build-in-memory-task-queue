@@ -56,11 +56,18 @@ To start, I am going to build the file structure, the initial Class, and then a 
      Imagine your pair partner just asked "what are you doing?" — answer that.
      Add as many entries as you need. -->
 
-### [03:26 5/16]]
+### [03:26 5/16]
 
 I got my first successful test back for enqueueing tasks. My initial plan I did not realize I had to initialize a worker pool right away, quickly found that out when my enqueue method was not working. I also had to add __init__.py files in order for my pytests to operate correctly. 
 
-### [HH:MM]
+### [12:05 5/17]
+
+Starting to build out my demo.py script to demonstrate each task with timestamped logs. 
+
+I built out the first demo then realized I need to reorganize demo.py to make it easy to demo each task. Each task will be a function
+and I will start the queue within those functions to keep that task demo independent. I want each demo self-contained. 
+
+I've now finished tasks 1 & 2. My class is successfully able to enqueue tasks and limit running tasks to a set concurrency.
 
 ### [HH:MM]
 
