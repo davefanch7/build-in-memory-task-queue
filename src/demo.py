@@ -20,6 +20,25 @@ async def slow_task(payload):
     await asyncio.sleep(1)
     log.info(f"END task {payload['id']}")
 
+async def demo_delayed_execution():
+    log.info("Requirement 3: Delayed Execution")
+    log.info("Beginning demo..")
+    queue = TaskQueue(concurrency=2)
+
+    queue.enqueue(slow_task, {"id": "A"})
+    log.info("enqueued task A (immediate, ~1s)")
+
+    queue.enqueue(slow_task, {"id": "B"})
+    log.info("enqueued task B (immediate, ~1s)")
+
+    queue.enqueue(slow_task, {"id": "D"}, delay_ms=3000)
+    log.info("enqueued task D (delayed 3s)")
+
+    queue.enqueue(slow_task, {"id": "C"}, )
+    log.info("enqueued task C (immediate, ~1s)")
+
+    await asyncio.sleep(5)
+
 #------------demos---------------------
 
 async def demo_enqueue():
@@ -47,6 +66,8 @@ async def main():
     await demo_enqueue()
     log.info('')
     await demo_concurrency()
+    log.info('')
+    await demo_delayed_execution()
 
 if __name__=='__main__':
     asyncio.run(main())

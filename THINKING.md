@@ -69,7 +69,26 @@ and I will start the queue within those functions to keep that task demo indepen
 
 I've now finished tasks 1 & 2. My class is successfully able to enqueue tasks and limit running tasks to a set concurrency.
 
-### [HH:MM]
+### [12:36 5/17]
+
+The next task is to add an optional delay. This will need to not hold a concurrency slot while the delay is happening. I'll need
+to first adjust my Task dataclass to accept this optional parameter. 
+
+Initial instinct was to modify async def _worker function to check if delay_ms was set. If so, then add a sleep. That would add the 
+delay, but then I think the worker gets stuck and breaks the requirement of not holding a concurrency slot. 
+
+Ok, I think I got stuck in semantics a bit here. The requirements say to make it clear when the task was enqueued versus when it actually executed. I was thinking of 'enqueue' as literally entering the queue. But once it's in the queue then it's too late to sleep becuase it will
+delay one of the workers and consume a concurrency slot. Now I'm thinking my original thought was correct - the time.sleep should 
+happen BEFORE the task enters the queue and happen in the background. But when a user calls 'enqueue' they've handed the task off and their
+job is done, even if the task doesn't immediately enter the queue. 
+
+So, I'm going to add the sleep before the task enters the queue. 
+
+I actually did not need to tweak my Task class object to support the delay parameter because the delay is not a part of the task
+itself. It's happening prior. I only needed to adjust my enqueue function. I also don't need to worry about someone setting a negative
+delay on accident. If it's >0 the delay will be applied, otherwise it will queue up immediately. 
+
+Added a demo showing the delay and it's working as expected. Not blocking a concurrency slot. 
 
 ### [HH:MM]
 

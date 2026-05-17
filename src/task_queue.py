@@ -2,6 +2,7 @@ from asyncio import Queue, create_task
 from dataclasses import dataclass, field
 from typing import Any, Callable
 import uuid
+import asyncio
 
 @dataclass
 class Task:
@@ -31,11 +32,19 @@ class TaskQueue:
             finally:
                 self._queue.task_done()
     
+    async def _delayed_put(self, task, delay_ms):
+        #run a delay before adding the task to the queue
+        await asyncio.sleep(delay_ms/1000)
+        self._queue.put_nowait(task)
+    
     #adding tasks to the queue
-    def enqueue(self, handler, payload):
+    def enqueue(self, handler, payload, delay_ms=0):
         self._ensure_started()
         task = Task(handler=handler, payload=payload)
-        self._queue.put_nowait(task)
+        if delay_ms>0:
+            asyncio.create_task(self._delayed_put(task, delay_ms))
+        else:
+            self._queue.put_nowait(task)
         return task.id
 
 
