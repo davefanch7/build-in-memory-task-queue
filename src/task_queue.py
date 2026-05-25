@@ -4,6 +4,7 @@ from typing import Any, Callable
 import uuid
 import asyncio
 
+
 @dataclass
 class Task:
     handler: Callable
@@ -12,26 +13,31 @@ class Task:
     backoff_ms: int = 1000
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
+
 @dataclass
 class DeadLetter:
     task_id: str
     error: str
     attempts: int
+
+
 class RetriesExhausted(Exception):
     def __init__(self, attempts: int, last_error: Exception):
         self.attempts = attempts
         self.last_error = last_error
         super().__init__(f"failed after {attempts} attempts: {last_error}")
+
+
 class TaskQueue:
-    '''Initializes a queue with default concurrency of 3. List initialized for worker pool. '''
+    """Initializes a queue with default concurrency of 3. List initialized for worker pool."""
+
     def __init__(self, concurrency: int = 3):
         self.concurrency = concurrency
         self._queue = Queue()
         self._workers = []
         self._started = False
         self._dead_letters = []
-        self._scheduled = [] 
-        self._started = False
+        self._scheduled = []
         self._shutting_down = False
 
     def _ensure_started(self):
@@ -46,21 +52,25 @@ class TaskQueue:
             try:
                 await self._run_with_retries(task)
             except RetriesExhausted as e:
-                self._dead_letters.append(DeadLetter(
-                    task_id=task.id,
-                    error=str(e.last_error),
-                    attempts=e.attempts,
-                ))
+                self._dead_letters.append(
+                    DeadLetter(
+                        task_id=task.id,
+                        error=str(e.last_error),
+                        attempts=e.attempts,
+                    )
+                )
             except Exception as e:
-                # any other unexpected error — also DLQ it
-                self._dead_letters.append(DeadLetter(
-                    task_id=task.id,
-                    error=str(e),
-                    attempts=1,
-                ))
+                # any other unexpected error - also DLQ it
+                self._dead_letters.append(
+                    DeadLetter(
+                        task_id=task.id,
+                        error=str(e),
+                        attempts=1,
+                    )
+                )
             finally:
                 self._queue.task_done()
-    
+
     async def _run_with_retries(self, task):
         attempt = 0
         while True:
@@ -68,15 +78,15 @@ class TaskQueue:
                 await task.handler(task.payload)
                 return
             except Exception as e:
-                if attempt>=task.max_retries:
+                if attempt >= task.max_retries:
                     raise RetriesExhausted(attempts=attempt + 1, last_error=e)
-                backoff_seconds= (task.backoff_ms / 1000) * (2**attempt)
+                backoff_seconds = (task.backoff_ms / 1000) * (2**attempt)
                 await asyncio.sleep(backoff_seconds)
-                attempt+=1
+                attempt += 1
 
     async def _delayed_put(self, task, delay_ms):
-        #run a delay before adding the task to the queue
-        await asyncio.sleep(delay_ms/1000)
+        # run a delay before adding the task to the queue
+        await asyncio.sleep(delay_ms / 1000)
         self._queue.put_nowait(task)
 
     async def shutdown(self):
@@ -86,29 +96,29 @@ class TaskQueue:
 
         for scheduled in self._scheduled:
             scheduled.cancel()
-        
+
         for _ in range(self.concurrency):
             self._queue.put_nowait(None)
-        
+
         await asyncio.gather(*self._workers, return_exceptions=True)
 
-    
-    #adding tasks to the queue
+    # adding tasks to the queue
     def enqueue(self, handler, payload, delay_ms=0, max_retries=0, backoff_ms=1000):
         if self._shutting_down:
-            raise RuntimeError('Queue is shutting down, cannot enqueue new tasks.')
+            raise RuntimeError("Queue is shutting down, cannot enqueue new tasks.")
         self._ensure_started()
-        task = Task(handler=handler, payload=payload, max_retries=max_retries, backoff_ms=backoff_ms)
-        if delay_ms>0:
+        task = Task(
+            handler=handler,
+            payload=payload,
+            max_retries=max_retries,
+            backoff_ms=backoff_ms,
+        )
+        if delay_ms > 0:
             scheduled = asyncio.create_task(self._delayed_put(task, delay_ms))
             self._scheduled.append(scheduled)
         else:
             self._queue.put_nowait(task)
         return task.id
-    
+
     def get_dead_letters(self):
-        return list(self._dead_letters) 
-
-
-        
-
+        return list(self._dead_letters)
