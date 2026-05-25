@@ -31,15 +31,20 @@ async def flaky_handler(payload):
         log.info(f"[task {task_id}] attempt {attempt} FAILED")
         raise RuntimeError(f"simulated failure on attempt {attempt}")
 
-    log.info(f"  [task {task_id}] attempt {attempt} SUCCEEDED")
+    log.info(f"[task {task_id}] attempt {attempt} SUCCEEDED")
 
 
 async def always_fails_handler(payload):
     task_id = payload["id"]
     attempt_counts[task_id] = attempt_counts.get(task_id, 0) + 1
     attempt = attempt_counts[task_id]
-    log.info(f"  [task {task_id}] attempt {attempt} FAILED")
+    log.info(f"[task {task_id}] attempt {attempt} FAILED")
     raise RuntimeError(f"permanent failure on attempt {attempt}")
+
+async def slow_2s_task(payload):
+    log.info(f"[task {payload['id']}] starting (will take ~2s)")
+    await asyncio.sleep(2)
+    log.info(f"[task {payload['id']}] finished")
 
 #------------demos---------------------
 
@@ -49,22 +54,22 @@ async def demo_enqueue():
     queue=TaskQueue()
     task_id = queue.enqueue(send_email, {"to": "user@example.com", "body": "Hello"})
     log.info(f'Enqueued task with task_id: {task_id}')
-    await asyncio.sleep(0.01)
+    await queue.shutdown()
     log.info('Done!')
 
 async def demo_concurrency():
     log.info('Requirement 2: Concurrency')
-    log.info('Beginning demo..')
+    log.info('Beginning demo with concurrency=2')
     queue=TaskQueue(concurrency=2)
     for i in range(1,6):
         queue.enqueue(slow_task, {'id': i })
         log.info(f'Enqueued task {i}')
-    await asyncio.sleep(3.5)
+    await queue.shutdown()
 
 
 async def demo_delayed_execution():
     log.info("Requirement 3: Delayed Execution")
-    log.info("Beginning demo..")
+    log.info("Beginning demo with concurrency=2")
     queue = TaskQueue(concurrency=2)
 
     queue.enqueue(slow_task, {"id": "A"})
@@ -79,7 +84,8 @@ async def demo_delayed_execution():
     queue.enqueue(slow_task, {"id": "C"}, )
     log.info("enqueued task C (immediate, ~1s)")
 
-    await asyncio.sleep(5)
+    await asyncio.sleep(3.1)
+    await queue.shutdown()
 
 async def demo_retries_with_backoff():
     log.info("Requirement 4: retry with exponential backoff")
@@ -89,7 +95,7 @@ async def demo_retries_with_backoff():
     log.info("max_retries=3, backoff_ms=1000 - expect sleeps of ~1s, ~2s")
     queue.enqueue(flaky_handler, {"id": "flaky-1"}, max_retries=3, backoff_ms=1000)
 
-    await asyncio.sleep(3.5)
+    await queue.shutdown()
 
 async def demo_dead_letter_queue():
     log.info("Requirement 5: DLQ")
@@ -98,11 +104,50 @@ async def demo_dead_letter_queue():
     log.info("enqueuing failing task with max_retries=2")
     queue.enqueue(always_fails_handler, {"id": "doomed-1"}, max_retries=2, backoff_ms=1000)
 
-    await asyncio.sleep(3.5)
+    await queue.shutdown()
 
     log.info("Inspecting dead letter queue:")
     for entry in queue.get_dead_letters():
         log.info(f"task_id={entry.task_id[:8]} attempts={entry.attempts} error={entry.error}")
+
+async def demo_shutdown():
+    log.info("Requirement 6: graceful shutdown")
+    queue = TaskQueue(concurrency=3)
+
+    log.info("enqueueing slow task")
+    queue.enqueue(slow_2s_task, {"id": "slowpoke-1"})
+
+    await asyncio.sleep(0.1)
+
+    log.info("calling shutdown()")
+    await queue.shutdown()
+    log.info("shutdown() returned")
+
+    try:
+        queue.enqueue(slow_2s_task, {"id": "rejected"})
+    except RuntimeError as e:
+        log.info(f"enqueue after shutdown rejected: {e}")
+
+
+async def demo_concurrent_enqueue():
+    log.info("Requirement 7: concurrent enqueue safety")
+    queue = TaskQueue(concurrency=5)
+
+    async def enqueue_one(i):
+        task_id = queue.enqueue(slow_task, {"id": i})
+        log.info(f"enqueued task {i:>2} (id={task_id[:8]})")
+        return task_id
+
+    log.info("enqueueing 20 tasks concurrently from 20 coroutines")
+    task_ids = await asyncio.gather(*[enqueue_one(i) for i in range(1, 21)])
+
+    log.info(f"all {len(task_ids)} enqueues returned without error")
+    log.info(f"unique task_ids: {len(set(task_ids))}")
+
+    log.info("waiting for all tasks to complete...")
+    await queue.shutdown()
+
+    log.info("all tasks complete; no errors")
 
 
 #-------entry point--------------
@@ -117,6 +162,10 @@ async def main():
     await demo_retries_with_backoff()
     log.info('')
     await demo_dead_letter_queue()
+    log.info('')
+    await demo_shutdown()
+    log.info('')
+    await demo_concurrent_enqueue()
 
 if __name__=='__main__':
     asyncio.run(main())

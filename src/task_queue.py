@@ -30,6 +30,9 @@ class TaskQueue:
         self._workers = []
         self._started = False
         self._dead_letters = []
+        self._scheduled = [] 
+        self._started = False
+        self._shutting_down = False
 
     def _ensure_started(self):
         if self._started:
@@ -75,13 +78,30 @@ class TaskQueue:
         #run a delay before adding the task to the queue
         await asyncio.sleep(delay_ms/1000)
         self._queue.put_nowait(task)
+
+    async def shutdown(self):
+        if self._shutting_down:
+            return
+        self._shutting_down = True
+
+        for scheduled in self._scheduled:
+            scheduled.cancel()
+        
+        for _ in range(self.concurrency):
+            self._queue.put_nowait(None)
+        
+        await asyncio.gather(*self._workers, return_exceptions=True)
+
     
     #adding tasks to the queue
     def enqueue(self, handler, payload, delay_ms=0, max_retries=0, backoff_ms=1000):
+        if self._shutting_down:
+            raise RuntimeError('Queue is shutting down, cannot enqueue new tasks.')
         self._ensure_started()
         task = Task(handler=handler, payload=payload, max_retries=max_retries, backoff_ms=backoff_ms)
         if delay_ms>0:
-            asyncio.create_task(self._delayed_put(task, delay_ms))
+            scheduled = asyncio.create_task(self._delayed_put(task, delay_ms))
+            self._scheduled.append(scheduled)
         else:
             self._queue.put_nowait(task)
         return task.id

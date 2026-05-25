@@ -96,7 +96,23 @@ The next 2 tasks are retries with exponential backoff & DLQ. I'm going to try to
 are related. If we haven't hit the retry max then we continue attempts, otherwise we send to the DLQ. I didn't plan this initially, but
 now that I thought about it, I will add the retries within the worker method as it should remain the priority even for retries (i.e. a failed task still remains in front of the queue.)
 
-### [HH:MM]
+### [3:11 5/25]
+
+Now adding DLQ. I'm going to add a new dataclass for the dead letters. 
+
+### [3:30 5/25]
+
+Need to add graceful shutdown method. I need to drain the queue somehow of tasks that haven't started once shutdown is called. 
+And add some kind of exception for my enqueue method to reject new tasks if shutdown was called.
+
+### [3:50 5/25]
+
+On to the final step. The 20 simultaneous coroutines. My code should be good for this I think? Will move straight to demo and try to spawn 20 and see if they all finish successfully. 
+
+### [4:05 5/25]
+
+There were warnings popping up for previous tasks getting destroyed but pending. Switched my demo functions to use the shutdown method
+after each mini demo so I can clear out the queue and avoid those warnings.
 
 ## Research / References
 
