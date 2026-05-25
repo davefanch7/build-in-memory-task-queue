@@ -12,6 +12,16 @@ class Task:
     backoff_ms: int = 1000
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
+@dataclass
+class DeadLetter:
+    task_id: str
+    error: str
+    attempts: int
+class RetriesExhausted(Exception):
+    def __init__(self, attempts: int, last_error: Exception):
+        self.attempts = attempts
+        self.last_error = last_error
+        super().__init__(f"failed after {attempts} attempts: {last_error}")
 class TaskQueue:
     '''Initializes a queue with default concurrency of 3. List initialized for worker pool. '''
     def __init__(self, concurrency: int = 3):
@@ -19,6 +29,7 @@ class TaskQueue:
         self._queue = Queue()
         self._workers = []
         self._started = False
+        self._dead_letters = []
 
     def _ensure_started(self):
         if self._started:
@@ -31,6 +42,19 @@ class TaskQueue:
             task = await self._queue.get()
             try:
                 await self._run_with_retries(task)
+            except RetriesExhausted as e:
+                self._dead_letters.append(DeadLetter(
+                    task_id=task.id,
+                    error=str(e.last_error),
+                    attempts=e.attempts,
+                ))
+            except Exception as e:
+                # any other unexpected error — also DLQ it
+                self._dead_letters.append(DeadLetter(
+                    task_id=task.id,
+                    error=str(e),
+                    attempts=1,
+                ))
             finally:
                 self._queue.task_done()
     
@@ -40,9 +64,9 @@ class TaskQueue:
             try:
                 await task.handler(task.payload)
                 return
-            except Exception:
+            except Exception as e:
                 if attempt>=task.max_retries:
-                    raise
+                    raise RetriesExhausted(attempts=attempt + 1, last_error=e)
                 backoff_seconds= (task.backoff_ms / 1000) * (2**attempt)
                 await asyncio.sleep(backoff_seconds)
                 attempt+=1
@@ -61,6 +85,9 @@ class TaskQueue:
         else:
             self._queue.put_nowait(task)
         return task.id
+    
+    def get_dead_letters(self):
+        return list(self._dead_letters) 
 
 
         

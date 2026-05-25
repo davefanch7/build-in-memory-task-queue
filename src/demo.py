@@ -34,6 +34,12 @@ async def flaky_handler(payload):
     log.info(f"  [task {task_id}] attempt {attempt} SUCCEEDED")
 
 
+async def always_fails_handler(payload):
+    task_id = payload["id"]
+    attempt_counts[task_id] = attempt_counts.get(task_id, 0) + 1
+    attempt = attempt_counts[task_id]
+    log.info(f"  [task {task_id}] attempt {attempt} FAILED")
+    raise RuntimeError(f"permanent failure on attempt {attempt}")
 
 #------------demos---------------------
 
@@ -85,6 +91,19 @@ async def demo_retries_with_backoff():
 
     await asyncio.sleep(3.5)
 
+async def demo_dead_letter_queue():
+    log.info("Requirement 5: DLQ")
+    queue = TaskQueue(concurrency=3)
+
+    log.info("enqueuing failing task with max_retries=2")
+    queue.enqueue(always_fails_handler, {"id": "doomed-1"}, max_retries=2, backoff_ms=1000)
+
+    await asyncio.sleep(3.5)
+
+    log.info("Inspecting dead letter queue:")
+    for entry in queue.get_dead_letters():
+        log.info(f"task_id={entry.task_id[:8]} attempts={entry.attempts} error={entry.error}")
+
 
 #-------entry point--------------
 
@@ -96,6 +115,8 @@ async def main():
     await demo_delayed_execution()
     log.info('')
     await demo_retries_with_backoff()
+    log.info('')
+    await demo_dead_letter_queue()
 
 if __name__=='__main__':
     asyncio.run(main())
