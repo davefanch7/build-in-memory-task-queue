@@ -90,7 +90,11 @@ delay on accident. If it's >0 the delay will be applied, otherwise it will queue
 
 Added a demo showing the delay and it's working as expected. Not blocking a concurrency slot. 
 
-### [HH:MM]
+### [2:29 5/25]
+
+The next 2 tasks are retries with exponential backoff & DLQ. I'm going to try to implement both at the same time since they 
+are related. If we haven't hit the retry max then we continue attempts, otherwise we send to the DLQ. I didn't plan this initially, but
+now that I thought about it, I will add the retries within the worker method as it should remain the priority even for retries (i.e. a failed task still remains in front of the queue.)
 
 ### [HH:MM]
 

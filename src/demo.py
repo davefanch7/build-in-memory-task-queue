@@ -9,6 +9,8 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+attempt_counts = {}
+
 #------------handlers-----------------
 
 async def send_email(payload):
@@ -20,24 +22,18 @@ async def slow_task(payload):
     await asyncio.sleep(1)
     log.info(f"END task {payload['id']}")
 
-async def demo_delayed_execution():
-    log.info("Requirement 3: Delayed Execution")
-    log.info("Beginning demo..")
-    queue = TaskQueue(concurrency=2)
+async def flaky_handler(payload):
+    task_id = payload["id"]
+    attempt_counts[task_id] = attempt_counts.get(task_id, 0) + 1
+    attempt = attempt_counts[task_id]
 
-    queue.enqueue(slow_task, {"id": "A"})
-    log.info("enqueued task A (immediate, ~1s)")
+    if attempt < 3:
+        log.info(f"[task {task_id}] attempt {attempt} FAILED")
+        raise RuntimeError(f"simulated failure on attempt {attempt}")
 
-    queue.enqueue(slow_task, {"id": "B"})
-    log.info("enqueued task B (immediate, ~1s)")
+    log.info(f"  [task {task_id}] attempt {attempt} SUCCEEDED")
 
-    queue.enqueue(slow_task, {"id": "D"}, delay_ms=3000)
-    log.info("enqueued task D (delayed 3s)")
 
-    queue.enqueue(slow_task, {"id": "C"}, )
-    log.info("enqueued task C (immediate, ~1s)")
-
-    await asyncio.sleep(5)
 
 #------------demos---------------------
 
@@ -60,6 +56,36 @@ async def demo_concurrency():
     await asyncio.sleep(3.5)
 
 
+async def demo_delayed_execution():
+    log.info("Requirement 3: Delayed Execution")
+    log.info("Beginning demo..")
+    queue = TaskQueue(concurrency=2)
+
+    queue.enqueue(slow_task, {"id": "A"})
+    log.info("enqueued task A (immediate, ~1s)")
+
+    queue.enqueue(slow_task, {"id": "B"})
+    log.info("enqueued task B (immediate, ~1s)")
+
+    queue.enqueue(slow_task, {"id": "D"}, delay_ms=3000)
+    log.info("enqueued task D (delayed 3s)")
+
+    queue.enqueue(slow_task, {"id": "C"}, )
+    log.info("enqueued task C (immediate, ~1s)")
+
+    await asyncio.sleep(5)
+
+async def demo_retries_with_backoff():
+    log.info("Requirement 4: retry with exponential backoff")
+    queue = TaskQueue(concurrency=3)
+
+    log.info("enqueuing flaky task (will fail attempts 1, 2; succeed on 3)")
+    log.info("max_retries=3, backoff_ms=1000 - expect sleeps of ~1s, ~2s")
+    queue.enqueue(flaky_handler, {"id": "flaky-1"}, max_retries=3, backoff_ms=1000)
+
+    await asyncio.sleep(3.5)
+
+
 #-------entry point--------------
 
 async def main():
@@ -68,6 +94,8 @@ async def main():
     await demo_concurrency()
     log.info('')
     await demo_delayed_execution()
+    log.info('')
+    await demo_retries_with_backoff()
 
 if __name__=='__main__':
     asyncio.run(main())
