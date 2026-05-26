@@ -134,3 +134,31 @@ AsyncIO documentation ->
      - What would you do differently with more time?
      - What surprised you about this problem?
      - Anything you tried and threw away? Why? -->
+
+1. What is the weakest part of your solution? Where's the duct tape?
+
+I think the weakest part of my solution is that the retries with backoff occupy a concurrency slot. If a user set a high # of retries or backoff, it would block one of my workers for quite a while. They could get around it with setting the concurrency higher, but it still isn't the most
+efficient. This is sort of the opposite of the delay feature which doesn't block a slot. For failed tasks, I could requeue them with a delay 
+instead, but there are tradeoffs with this.
+
+2. Where would this break in production?
+
+If the tasks were "hanging" it would block a worker indefinitely, which would be terrible in production. Probably need some sort of timeout mechanism, which could just be another parameter that a user sets.
+
+3. What would you do differently with more time?
+
+I think adding a timeout wouldn't be too difficult and if I spent more time I would add this first. 
+
+4. What surprised you about this problem?
+
+I think the most surprising part was that asyncio has a lot built-in already. When I first read task 7, I honestly had no idea how to solve that
+and thought it was going to be the most complicated part. It turns out the class was already built to handle enqueueing concurrently.
+
+5. Anything you tried and threw away? Why?
+
+For the delay mechanic, I had the worker sleep which blocked the concurrency slot. Then I shifted to having it to run the delay before adding it
+to the queue. 
+
+One other small one, I tried using a Queue for the DLQ, then I realized that was more complicated and a list would be just fine. I didn't need
+any FIFO mechanics or special operations for checking DLQ entries. 
+

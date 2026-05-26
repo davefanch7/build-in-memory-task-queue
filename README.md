@@ -2,11 +2,11 @@
 
 To run the demo from this fork, run the following commands:
 
+```bash
 git clone https://github.com/davefanch7/build-in-memory-task-queue.git
-cd src
+cd build-in-memory-task-queue/src
 python3 demo.py
-
-
+```
 
 Welcome 👋. You've been invited to do a paid coding task for Enki's **AI training data program**. Read this whole file first, then head to [`TASK.md`](./TASK.md) for the actual problem.
 
