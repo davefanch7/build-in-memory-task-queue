@@ -114,6 +114,12 @@ On to the final step. The 20 simultaneous coroutines. My code should be good for
 There were warnings popping up for previous tasks getting destroyed but pending. Switched my demo functions to use the shutdown method
 after each mini demo so I can clear out the queue and avoid those warnings.
 
+### [9:27 5/28]
+
+External review prompted some changes!
+
+A reviewer caught a bug in my code where my workers were not checking if the task == None. On shutdown, I have 'None' being added to the queue as a signal for each worker to exit (added N times where N = concurrency setting). I forgot to actually add the check in my _worker method, so adding that fix now.  
+
 ## Research / References
 
 <!-- Optional. Any docs, articles, past code, or language references you looked at.
@@ -159,6 +165,7 @@ and thought it was going to be the most complicated part. It turns out the class
 For the delay mechanic, I had the worker sleep which blocked the concurrency slot. Then I shifted to having it to run the delay before adding it
 to the queue. 
 
-One other small one, I tried using a Queue for the DLQ, then I realized that was more complicated and a list would be just fine. I didn't need
-any FIFO mechanics or special operations for checking DLQ entries. 
+One other small one, I tried using a Queue for the DLQ, then I realized that was more complicated and a list would be just fine. I didn't need any FIFO mechanics or special operations for checking DLQ entries. 
 
+One last note - I initially set out to use test-driven development and in total wrote 1 unit test :) Once I set up the demo.py script, that
+really allowed me to run end to end testing and with that in place, I felt confident that changes I added were not unexpectedly breaking my module. Admittedly, I also found writing unit tests a bit difficult for the tasks which also influenced me switching to just demo.py. In a production setting, I would add way more coverage for my code.

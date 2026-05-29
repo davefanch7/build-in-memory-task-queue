@@ -49,6 +49,9 @@ class TaskQueue:
     async def _worker(self, worker_id: int):
         while True:
             task = await self._queue.get()
+            if task is None:
+                self._queue.task_done()
+                return
             try:
                 await self._run_with_retries(task)
             except RetriesExhausted as e:
